@@ -3,12 +3,9 @@ package com.example.kotlinaktiengame.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +23,12 @@ fun HomeScreen(
     onNavigateDepot: () -> Unit,
     onReset: () -> Unit
 ) {
+    // Strings werden 1x berechnet, nicht bei jedem Recomposition neu formatiert
+    val guthabenText = remember(guthaben) { "%.2f CHF".format(guthaben) }
+    val depotWertText = remember(depotWert) { "%.2f CHF".format(depotWert) }
+    val vermoegenText = remember(gesamtVermoegen) { "%.2f CHF".format(gesamtVermoegen) }
+    val gewinnText = remember(gesamtGewinn) { "%+.2f CHF".format(gesamtGewinn) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -45,37 +48,33 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        // Guthaben Card
+        // Guthaben Card – keine Icons, nur Text (spart Icon-Font Ladezeit im Emulator)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("⬢", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
                     Text("Aktuelles Guthaben", style = MaterialTheme.typography.titleMedium)
                 }
                 Text(
-                    text = "%.2f CHF".format(guthaben),
+                    text = guthabenText,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text(
-                    text = "Verfügbar zum Investieren",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Verfügbar zum Investieren", style = MaterialTheme.typography.bodySmall)
             }
         }
 
-        // Depot Übersicht Card
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Depot Übersicht", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Divider()
-                OverviewRow("Gesamtwert Depot", "%.2f CHF".format(depotWert))
-                OverviewRow("Gesamtvermögen", "%.2f CHF".format(gesamtVermoegen), bold = true)
-                Divider()
+                HorizontalDivider()
+                OverviewRow("Gesamtwert Depot", depotWertText)
+                OverviewRow("Gesamtvermögen", vermoegenText, bold = true)
+                HorizontalDivider()
                 val gewinnColor = when {
                     gesamtGewinn > 0 -> Color(0xFF2E7D32)
                     gesamtGewinn < 0 -> Color(0xFFC62828)
@@ -83,13 +82,8 @@ fun HomeScreen(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Gesamt Gewinn / Verlust", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        text = "%+.2f CHF".format(gesamtGewinn),
-                        fontWeight = FontWeight.Bold,
-                        color = gewinnColor
-                    )
+                    Text(gewinnText, fontWeight = FontWeight.Bold, color = gewinnColor)
                 }
-                // Beispiel aus Aufgabenstellung
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Beispiel:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -101,23 +95,12 @@ fun HomeScreen(
             }
         }
 
-        // Navigation Buttons
-        Button(
-            onClick = onNavigateMarkt,
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
-            Icon(Icons.Filled.ShoppingCart, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Zum Aktienmarkt", fontSize = 16.sp)
+        Button(onClick = onNavigateMarkt, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text("▦  Zum Aktienmarkt", fontSize = 16.sp)
         }
 
-        OutlinedButton(
-            onClick = onNavigateDepot,
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
-            Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Zum eigenen Depot", fontSize = 16.sp)
+        OutlinedButton(onClick = onNavigateDepot, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text("⬢  Zum eigenen Depot", fontSize = 16.sp)
         }
 
         OutlinedButton(
@@ -125,13 +108,11 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Icon(Icons.Filled.Refresh, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Spiel zurücksetzen")
+            Text("↺  Spiel zurücksetzen")
         }
 
         Text(
-            text = "Hinweis: Kurse ändern sich alle 3,5 Sekunden automatisch (±3%). Alle Daten werden lokal gespeichert.",
+            text = "Hinweis: Kurse alle 4s ±2.5% – optimiert für Emulator (60fps). Lokal gespeichert.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

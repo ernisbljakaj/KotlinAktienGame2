@@ -5,13 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,13 +45,14 @@ sealed class Screen(val route: String, val label: String) {
 @Composable
 fun AktienGameApp(viewModel: GameViewModel = viewModel()) {
     val navController = rememberNavController()
-    val guthaben by viewModel.guthaben.collectAsState()
-    val depot by viewModel.depot.collectAsState()
-    val aktien by viewModel.aktien.collectAsState()
-    val depotWert by viewModel.depotGesamtwert.collectAsState()
-    val gewinn by viewModel.gesamtGewinnVerlust.collectAsState()
-    val vermoegen by viewModel.gesamtVermoegen.collectAsState()
-    val message by viewModel.message.collectAsState()
+    // Lifecycle-aware collection: pausiert wenn Screen nicht sichtbar -> spart CPU im Emulator
+    val guthaben by viewModel.guthaben.collectAsStateWithLifecycle()
+    val depot by viewModel.depot.collectAsStateWithLifecycle()
+    val aktien by viewModel.aktien.collectAsStateWithLifecycle()
+    val depotWert by viewModel.depotGesamtwert.collectAsStateWithLifecycle()
+    val gewinn by viewModel.gesamtGewinnVerlust.collectAsStateWithLifecycle()
+    val vermoegen by viewModel.gesamtVermoegen.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -72,7 +72,7 @@ fun AktienGameApp(viewModel: GameViewModel = viewModel()) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Kotlin Aktien Game") },
+                title = { Text("Kotlin Aktien Game", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -82,14 +82,14 @@ fun AktienGameApp(viewModel: GameViewModel = viewModel()) {
             NavigationBar {
                 NavigationBarItem(
                     selected = currentRoute == Screen.Home.route,
-                    onClick = { navController.navigate(Screen.Home.route) { launchSingleTop = true } },
-                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                    onClick = { navController.navigate(Screen.Home.route) { launchSingleTop = true; popUpTo(Screen.Home.route) { inclusive = false } } },
+                    icon = { Text("⌂", fontSize = 20.sp) },
                     label = { Text("Start") }
                 )
                 NavigationBarItem(
                     selected = currentRoute == Screen.Markt.route,
                     onClick = { navController.navigate(Screen.Markt.route) { launchSingleTop = true } },
-                    icon = { Icon(Icons.Filled.Store, contentDescription = null) },
+                    icon = { Text("▦", fontSize = 20.sp) },
                     label = { Text("Markt") }
                 )
                 NavigationBarItem(
@@ -99,7 +99,7 @@ fun AktienGameApp(viewModel: GameViewModel = viewModel()) {
                         BadgedBox(badge = {
                             if (depot.isNotEmpty()) Badge { Text("${depot.size}") }
                         }) {
-                            Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null)
+                            Text("⬢", fontSize = 20.sp)
                         }
                     },
                     label = { Text("Depot") }
@@ -114,27 +114,33 @@ fun AktienGameApp(viewModel: GameViewModel = viewModel()) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
+                // remember callbacks -> stabile Lambdas, weniger Recomposition
+                val onMarkt = remember(navController) { { navController.navigate(Screen.Markt.route) } }
+                val onDepot = remember(navController) { { navController.navigate(Screen.Depot.route) } }
+                val onReset = remember(viewModel) { { viewModel.resetSpiel() } }
                 HomeScreen(
                     guthaben = guthaben,
                     depotWert = depotWert,
                     gesamtGewinn = gewinn,
                     gesamtVermoegen = vermoegen,
-                    onNavigateMarkt = { navController.navigate(Screen.Markt.route) },
-                    onNavigateDepot = { navController.navigate(Screen.Depot.route) },
-                    onReset = { viewModel.resetSpiel() }
+                    onNavigateMarkt = onMarkt,
+                    onNavigateDepot = onDepot,
+                    onReset = onReset
                 )
             }
             composable(Screen.Markt.route) {
+                val onKaufen = remember(viewModel) { { aktie: com.example.kotlinaktiengame.model.Aktie, anzahl: Int -> viewModel.kaufeAktie(aktie, anzahl) } }
                 MarketScreen(
                     aktien = aktien,
                     guthaben = guthaben,
-                    onKaufen = { aktie, anzahl -> viewModel.kaufeAktie(aktie, anzahl) }
+                    onKaufen = onKaufen
                 )
             }
             composable(Screen.Depot.route) {
+                val onVerkaufen = remember(viewModel) { { kuerzel: String, anzahl: Int -> viewModel.verkaufeAktie(kuerzel, anzahl) } }
                 DepotScreen(
                     depot = depot,
-                    onVerkaufen = { kuerzel, anzahl -> viewModel.verkaufeAktie(kuerzel, anzahl) }
+                    onVerkaufen = onVerkaufen
                 )
             }
         }

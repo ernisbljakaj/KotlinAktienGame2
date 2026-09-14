@@ -23,13 +23,16 @@ fun DepotScreen(
     if (depot.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(32.dp)) {
-                Text("Dein Depot ist leer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Kaufe Aktien im Aktienmarkt, um sie hier zu sehen.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Depot leer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Kaufe im Markt Aktien.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     } else {
-        val gesamtWert = depot.sumOf { it.aktuellerWert }
-        val gesamtGewinn = depot.sumOf { it.gewinnVerlust }
+        // Summen nur 1x pro Depot-Change berechnen (statt bei jedem Recomposition)
+        val gesamtWert = remember(depot) { depot.sumOf { it.aktuellerWert } }
+        val gesamtGewinn = remember(depot) { depot.sumOf { it.gewinnVerlust } }
+        val gesamtWertText = remember(gesamtWert) { "%.2f CHF".format(gesamtWert) }
+        val gesamtGewinnText = remember(gesamtGewinn) { "%+.2f CHF".format(gesamtGewinn) }
 
         Column(modifier = Modifier.fillMaxSize()) {
             Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -38,19 +41,18 @@ fun DepotScreen(
                         Text("Positionen", style = MaterialTheme.typography.titleSmall)
                         Text("${depot.size} Aktien", style = MaterialTheme.typography.labelMedium)
                     }
-                    Divider()
+                    HorizontalDivider()
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Gesamtwert")
-                        Text("%.2f CHF".format(gesamtWert), fontWeight = FontWeight.Bold)
+                        Text("Gesamtwert"); Text(gesamtWertText, fontWeight = FontWeight.Bold)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Gesamt Gewinn/Verlust")
+                        Text("Gewinn/Verlust")
                         val c = when {
                             gesamtGewinn > 0 -> Color(0xFF2E7D32)
                             gesamtGewinn < 0 -> Color(0xFFC62828)
                             else -> MaterialTheme.colorScheme.onSurface
                         }
-                        Text("%+.2f CHF".format(gesamtGewinn), color = c, fontWeight = FontWeight.Bold)
+                        Text(gesamtGewinnText, color = c, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -60,7 +62,7 @@ fun DepotScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(depot) { pos ->
+                items(items = depot, key = { it.kuerzel }) { pos ->
                     DepotCard(position = pos, onVerkaufenClick = {
                         selectedPosition = pos
                         showDialog = true
@@ -86,8 +88,14 @@ fun DepotScreen(
 private fun DepotCard(position: DepotPosition, onVerkaufenClick: () -> Unit) {
     val isGewinn = position.gewinnVerlust >= 0
     val farbe = if (isGewinn) Color(0xFF2E7D32) else Color(0xFFC62828)
+    // Strings cachen – verhindert neues String.format bei jedem Frame
+    val kaufpreisText = remember(position.kaufpreis) { "%.2f CHF".format(position.kaufpreis) }
+    val aktuellerPreisText = remember(position.aktuellerKurs) { "%.2f CHF".format(position.aktuellerKurs) }
+    val wertText = remember(position.aktuellerWert) { "%.2f CHF".format(position.aktuellerWert) }
+    val gewinnText = remember(position.gewinnVerlust) { "%+.2f CHF".format(position.gewinnVerlust) }
+    val prozentText = remember(position.gewinnVerlustProzent) { "%+.2f %%".format(position.gewinnVerlustProzent) }
 
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -95,28 +103,18 @@ private fun DepotCard(position: DepotPosition, onVerkaufenClick: () -> Unit) {
                     Text(position.kuerzel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Card(colors = CardDefaults.cardColors(containerColor = farbe.copy(alpha = 0.15f))) {
-                    Text(
-                        text = "%+.2f %%".format(position.gewinnVerlustProzent),
-                        color = farbe,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Text(prozentText, color = farbe, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                 }
             }
-            Divider()
+            HorizontalDivider()
             DepotRow("Anzahl", "${position.anzahl} Stück")
-            DepotRow("Kaufpreis", "%.2f CHF".format(position.kaufpreis))
-            DepotRow("Aktueller Preis", "%.2f CHF".format(position.aktuellerKurs))
-            Divider()
-            DepotRow("Aktueller Wert", "%.2f CHF".format(position.aktuellerWert), bold = true)
+            DepotRow("Kaufpreis", kaufpreisText)
+            DepotRow("Aktuell", aktuellerPreisText)
+            HorizontalDivider()
+            DepotRow("Wert", wertText, bold = true)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Gewinn / Verlust", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    text = "%+.2f CHF".format(position.gewinnVerlust),
-                    fontWeight = FontWeight.Bold,
-                    color = farbe
-                )
+                Text(gewinnText, fontWeight = FontWeight.Bold, color = farbe)
             }
             Button(onClick = onVerkaufenClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
                 Text("Verkaufen")
@@ -141,16 +139,16 @@ private fun VerkaufDialog(
 ) {
     var anzahlText by remember { mutableStateOf("1") }
     val anzahl = anzahlText.toIntOrNull() ?: 0
-    val erloes = position.aktuellerKurs * anzahl
-    val kannVerkaufen = anzahl > 0 && anzahl <= position.anzahl
+    val erloes = remember(position.aktuellerKurs, anzahl) { position.aktuellerKurs * anzahl }
+    val kannVerkaufen = anzahl in 1..position.anzahl
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Aktie verkaufen: ${position.kuerzel}") },
+        title = { Text("Verkaufen: ${position.kuerzel}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("${position.name} – Bestand: ${position.anzahl} Stück")
-                Text("Aktueller Kurs: %.2f CHF".format(position.aktuellerKurs), style = MaterialTheme.typography.bodySmall)
+                Text("${position.name} – Bestand: ${position.anzahl}")
+                Text("Kurs: %.2f CHF".format(position.aktuellerKurs), style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = anzahlText,
                     onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 5) anzahlText = it },
@@ -162,9 +160,7 @@ private fun VerkaufDialog(
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
                             Text("Erlös: %.2f CHF".format(erloes), fontWeight = FontWeight.Bold)
-                            if (!kannVerkaufen) {
-                                Text("Zu viele Aktien! Max: ${position.anzahl}", color = Color.Red, style = MaterialTheme.typography.bodySmall)
-                            }
+                            if (!kannVerkaufen) Text("Max: ${position.anzahl}", color = Color.Red, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -175,11 +171,7 @@ private fun VerkaufDialog(
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = { onConfirm(anzahl) }, enabled = kannVerkaufen) { Text("Verkaufen") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Abbrechen") }
-        }
+        confirmButton = { Button(onClick = { onConfirm(anzahl) }, enabled = kannVerkaufen) { Text("Verkaufen") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
     )
 }

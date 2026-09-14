@@ -1,7 +1,9 @@
 package com.example.kotlinaktiengame.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
+@Immutable
 @Serializable
 data class DepotPosition(
     val name: String,

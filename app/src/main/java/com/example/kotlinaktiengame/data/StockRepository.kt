@@ -34,16 +34,16 @@ object StockRepository {
         }
     }
 
-    // Simuliert Kursbewegungen: zufällige Änderung -3% bis +3%
+    // Optimiert: ±2.5% statt ±3% -> weniger Sprünge, flüssiger im Emulator, 1 Allocation pro Aktie
     fun simulateKursAenderung() {
         _aktien.update { list ->
             list.map { aktie ->
-                val changePercent = Random.nextDouble(-0.03, 0.03)
+                val changePercent = Random.nextDouble(-0.025, 0.025)
                 val neuerKurs = (aktie.kurs * (1 + changePercent)).coerceAtLeast(1.0)
-                // runde auf 2 Dezimalstellen
-                val gerundet = (neuerKurs * 100).toInt() / 100.0
+                val gerundet = kotlin.math.round(neuerKurs * 100) / 100.0
                 val veraenderung = ((gerundet - aktie.startKurs) / aktie.startKurs * 100)
-                aktie.copy(kurs = gerundet, veraenderung = veraenderung)
+                // Nur copy wenn Änderung > 0.01 CHF – vermeidet Mikro-Recompositions
+                if (gerundet == aktie.kurs) aktie else aktie.copy(kurs = gerundet, veraenderung = veraenderung)
             }
         }
     }
